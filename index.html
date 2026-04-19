@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DiskOS v2 — File System Tool</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Crect width=%2716%27 height=%2716%27 rx=%272%27 fill=%27%23040b16%27/%3E%3Crect x=%273%27 y=%273%27 width=%274%27 height=%274%27 fill=%2700f0ff%27/%3E%3Crect x=%279%27 y=%273%27 width=%274%27 height=%274%27 fill=%2700f0ff%27 opacity=%270.45%27/%3E%3Crect x=%273%27 y=%279%27 width=%274%27 height=%274%27 fill=%2700f0ff%27 opacity=%270.45%27/%3E%3Crect x=%279%27 y=%279%27 width=%274%27 height=%274%27 fill=%2700f0ff%27 opacity=%270.75%27/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,600;0,700;1,400&family=Bebas+Neue&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div class="crt-overlay"></div>
+
+  <!-- ╔═ HEADER ═══════════════════════════════════════════════════════════╗ -->
+  <header class="header">
+    <div class="header-l">
+      <div class="logo">
+        <svg class="logo-glyph" viewBox="0 0 24 24" fill="none">
+          <rect x="2" y="2" width="20" height="20" rx="2" stroke="currentColor" stroke-width="1.5"/>
+          <rect x="6" y="6" width="5" height="5" fill="currentColor" opacity=".9"/>
+          <rect x="13" y="6" width="5" height="5" fill="currentColor" opacity=".4"/>
+          <rect x="6" y="13" width="5" height="5" fill="currentColor" opacity=".4"/>
+          <rect x="13" y="13" width="5" height="5" fill="currentColor" opacity=".7"/>
+        </svg>
+        DISK<span class="logo-os">OS</span> <span class="logo-v">v2</span>
+      </div>
+      <span class="header-sep">|</span>
+      <span class="header-sub">File System Recovery &amp; Optimization</span>
+    </div>
+    <div class="header-r">
+      <div class="pill pill-green" id="mount-status">
+        <span class="dot"></span><span id="mount-label">MOUNTED</span>
+      </div>
+      <div class="pill pill-dim">512 BLOCKS · 256 B/BLK</div>
+          </div>
+  </header>
+
+  <!-- ╔═ STATS RIBBON ══════════════════════════════════════════════════════╗ -->
+  <div class="stats-ribbon">
+    <div class="scard">
+      <div class="scard-l">CAPACITY</div>
+      <div class="scard-v" id="sr-capacity">0%</div>
+      <div class="cap-track"><div class="cap-fill" id="cap-fill"></div></div>
+    </div>
+    <div class="scard">
+      <div class="scard-l">USED BLOCKS</div>
+      <div class="scard-v blue" id="sr-used">—</div>
+    </div>
+    <div class="scard">
+      <div class="scard-l">FREE BLOCKS</div>
+      <div class="scard-v green" id="sr-free">—</div>
+    </div>
+    <div class="scard">
+      <div class="scard-l">RECLAIMABLE</div>
+      <div class="scard-v red" id="sr-reclaim">—</div>
+    </div>
+    <div class="scard">
+      <div class="scard-l">ACTIVE FILES</div>
+      <div class="scard-v amber" id="sr-files">—</div>
+    </div>
+    <div class="scard">
+      <div class="scard-l">DELETED FILES</div>
+      <div class="scard-v red" id="sr-deleted">—</div>
+    </div>
+    <div class="scard frag-scard">
+      <div class="scard-l">FRAGMENTATION <span id="frag-pct" class="frag-pct">0%</span></div>
+      <div class="frag-track"><div class="frag-fill" id="frag-fill"></div></div>
+      <div class="frag-label" id="frag-label">OPTIMAL</div>
+    </div>
+  </div>
+
+  <!-- ╔═ MAIN ══════════════════════════════════════════════════════════════╗ -->
+  <div class="workspace">
+
+    <!-- ── LEFT COLUMN ─────────────────────────────────────────────────── -->
+    <aside class="col-left">
+
+      <!-- DISK MAP -->
+      <div class="panel">
+        <div class="panel-hdr">
+          <span class="panel-ttl">BITMAP DISK MAP</span>
+          <div class="legend-row">
+            <span class="leg"><i class="ldot free"></i>FREE</span>
+            <span class="leg"><i class="ldot used"></i>USED</span>
+            <span class="leg"><i class="ldot ghost"></i>DELETED</span>
+            <span class="leg"><i class="ldot sel"></i>SELECTED</span>
+          </div>
+        </div>
+        <div class="diskmap-wrap">
+          <div class="disk-grid" id="disk-grid"></div>
+        </div>
+      </div>
+
+      <!-- WRITE / EDIT PANEL -->
+      <div class="panel flex1">
+        <div class="panel-hdr">
+          <span class="panel-ttl" id="form-title">WRITE FILE</span>
+          <div id="edit-badge" class="edit-badge hidden">EDIT MODE</div>
+        </div>
+        <div class="form-body">
+          <input id="f-name" class="finput" type="text" placeholder="filename.txt" autocomplete="off" />
+
+<!-- 📁 FILE UPLOAD -->
+          <div class="file-upload" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <label for="f-file" class="file-label">📄 File</label>
+            <input type="file" id="f-file" hidden />
+            
+            <label for="f-folder" class="file-label" style="background:var(--gray); color:var(--b0);">📁 Folder</label>
+            <input type="file" id="f-folder" webkitdirectory directory multiple hidden />
+            
+            <span id="file-name" style="flex:1;">No item selected</span>
+          </div>
+
+<!-- ✏️ TEXT (fallback) -->
+          <textarea id="f-content" class="ftextarea" placeholder="File content (for text files)…"></textarea>
+          <div class="size-row">
+            <span class="size-item"><span id="byte-count">0</span> bytes</span>
+            <span class="size-sep">→</span>
+            <span class="size-item"><span id="blk-count">1</span> block(s)</span>
+            <span class="size-sep">·</span>
+            <span class="size-item" id="blk-delta"></span>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-write" id="btn-submit" onclick="submitForm()">
+              <svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              WRITE TO DISK
+            </button>
+            <button class="btn btn-cancel-edit hidden" id="btn-cancel-edit" onclick="cancelEdit()">✕ CANCEL</button>
+          </div>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- ── CENTER COLUMN ────────────────────────────────────────────────── -->
+    <main class="col-center">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="search" placeholder="Search files..." oninput="searchFiles(this.value)">
+      </div>
+
+      <!-- INODE TABLE -->
+      <div class="panel inode-panel">
+        <div class="panel-hdr">
+          <span class="panel-ttl">INODE TABLE</span>
+          <div class="filter-row">
+            <button class="ftab on" onclick="setFilter('all',this)">ALL</button>
+            <button class="ftab"    onclick="setFilter('active',this)">ACTIVE</button>
+            <button class="ftab"    onclick="setFilter('deleted',this)">DELETED</button>
+          </div>
+        </div>
+        <div class="inode-scroll">
+          <table class="itable">
+            <thead>
+              <tr>
+                <th style="width:32px">SEL</th>
+                <th>INODE</th>
+                <th>NAME</th>
+                <th>SIZE</th>
+                <th>BLOCKS</th>
+                <th>MODIFIED</th>
+                <th>STATUS</th>
+              </tr>
+            </thead>
+            <tbody id="inode-body"></tbody>
+          </table>
+        </div>
+
+        <!-- SELECTION ACTION BAR -->
+        <div class="sel-bar" id="sel-bar">
+          <span class="sel-fname" id="sel-fname">—</span>
+          <div class="sel-actions">
+            <button class="sact sact-read"    onclick="actionRead()">
+              <svg viewBox="0 0 16 16" fill="none"><path d="M2 8s2.5-5 6-5 6 5 6 5-2.5 5-6 5-6-5-6-5z" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/></svg>
+              READ
+            </button>
+            <button class="sact sact-edit"    onclick="actionEdit()">
+              <svg viewBox="0 0 16 16" fill="none"><path d="M10.5 2.5l3 3L5 14H2v-3L10.5 2.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+              EDIT
+            </button>
+            <button class="sact sact-recover" onclick="actionRecover()" id="btn-recover-sel">
+              <svg viewBox="0 0 16 16" fill="none"><path d="M3 8a5 5 0 1 1 1.5 3.5M3 12V8h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              RECOVER
+            </button>
+            <button class="sact sact-salvage" onclick="actionSalvage()">
+              <svg viewBox="0 0 16 16" fill="none"><path d="M3 13l3.5-3.5M8.5 11.5L13 7M10 3h3v3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              SALVAGE
+            </button>
+            <button class="sact sact-del"     onclick="actionDelete()">
+              <svg viewBox="0 0 16 16" fill="none"><path d="M3 4h10M6 4V3h4v1M5 4l.5 9h5L11 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              DELETE
+            </button>
+            <button class="sact sact-remove"  onclick="actionRemoveFromDisk()">
+              <svg viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+              REMOVE
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- FILE VIEWER -->
+      <div class="panel viewer-panel">
+                <div class="panel-hdr" style="display: flex; align-items: center;">
+          <span class="panel-ttl">FILE VIEWER</span>
+          <span class="viewer-name" id="viewer-name">—</span>
+          <div style="margin-left: auto; display: flex; gap: 8px; padding-right: 10px;">
+            <button id="main-fullscreen-btn" aria-label="Fullscreen File Viewer" style="background: var(--b1, #222); color: #fff; border: 1px solid #444; padding: 2px 8px; font-family: monospace; font-size: 11px; cursor: pointer;">FULLSCREEN</button>
+            <button id="main-close-btn" aria-label="Close File" style="background: var(--b1, #222); color: #fff; border: 1px solid #444; padding: 2px 8px; font-family: monospace; font-size: 11px; cursor: pointer;">CLOSE</button>
+          </div>
+        </div>
+        <div class="viewer-body" id="viewer-body">
+          <div class="viewer-empty">Select a file and press READ to view its contents</div>
+        </div>
+        <div class="viewer-meta" id="viewer-meta"></div>
+      </div>
+
+    </main>
+
+    <!-- ── RIGHT COLUMN ─────────────────────────────────────────────────── -->
+    <aside class="col-right">
+
+      <!-- OPERATIONS -->
+      <div class="panel">
+        <div class="panel-hdr"><span class="panel-ttl">DISK OPERATIONS</span></div>
+        <div class="ops-list">
+          <button class="op-row op-recover" onclick="bulkRecover()">
+            <span class="op-ico">↺</span>
+            <span class="op-info">
+              <span class="op-name">RECOVER ALL</span>
+              <span class="op-desc">Restore all recoverable deleted files</span>
+            </span>
+          </button>
+          <button class="op-row op-defrag" onclick="defragDisk()">
+            <span class="op-ico">▣</span>
+            <span class="op-info">
+              <span class="op-name">DEFRAGMENT</span>
+              <span class="op-desc">Pack blocks into contiguous range</span>
+            </span>
+          </button>
+          <button class="op-row op-format" onclick="openModal()">
+            <span class="op-ico">⊘</span>
+            <span class="op-info">
+              <span class="op-name">FORMAT DISK</span>
+              <span class="op-desc">Wipe all data — irreversible</span>
+            </span>
+          </button>
+          <button class="op-row op-crash" onclick="simulateCrash()">
+            <span class="op-ico">💥</span>
+            <span class="op-info">
+              <span class="op-name">SIMULATE CRASH</span>
+              <span class="op-desc">Randomly corrupt active files</span>
+            </span>
+          </button>
+
+          <button class="op-row op-repair" onclick="repairDisk()">
+            <span class="op-ico">🛠</span>
+            <span class="op-info">
+              <span class="op-name">REPAIR SYSTEM</span>
+              <span class="op-desc">Restore corrupted files</span>
+            </span>
+          </button>
+
+          <button class="op-row op-suggest" onclick="getSuggestions()">
+            <span class="op-ico">💡</span>
+            <span class="op-info">
+              <span class="op-name">AI SUGGESTIONS</span>
+              <span class="op-desc">Analyze system & suggest optimizations</span>
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <!-- BLOCK INSPECTOR -->
+      <div class="panel">
+        <div class="panel-hdr"><span class="panel-ttl">BLOCK INSPECTOR</span></div>
+        <div class="inspector" id="inspector">
+          <div class="insp-empty">Hover a block to inspect</div>
+        </div>
+      </div>
+
+      <!-- SYSTEM LOG -->
+      <div class="panel flex1">
+        <div class="panel-hdr">
+          <span class="panel-ttl">SYSTEM LOG</span>
+          <button class="clr-btn" onclick="document.getElementById('log-body').innerHTML=''">CLR</button>
+        </div>
+        <div class="log-body" id="log-body"></div>
+      </div>
+
+    </aside>
+  </div><!-- /workspace -->
+
+  <!-- ╔═ FORMAT MODAL ══════════════════════════════════════════════════════╗ -->
+  <div class="modal-bg" id="modal-bg" onclick="closeModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-icon">⚠</div>
+      <div class="modal-ttl">FORMAT DISK?</div>
+      <div class="modal-body">All inodes, file data, and block allocations will be permanently erased. This cannot be undone.</div>
+      <div class="modal-acts">
+        <button class="btn btn-cancel" onclick="closeModal()">CANCEL</button>
+        <button class="btn btn-format" onclick="doFormat()">FORMAT</button>
+      </div>
+    </div>
+  </div>
+  
+<!-- Suggestions Output -->
+<div id="suggestions" style="margin: 20px; color: cyan;"></div>
+
+  <!-- ╔═ TOAST ═════════════════════════════════════════════════════════════╗ -->
+  <div class="toast" id="toast"></div>
+
+  <div class="preview-lightbox" id="preview-lightbox" aria-hidden="true" role="dialog" aria-label="Large preview">
+    <div class="preview-lightbox-backdrop" data-close-lightbox="1"></div>
+    <div class="preview-lightbox-panel" role="document">
+            <div class="preview-lightbox-actions">
+        <button class="preview-lightbox-btn" id="preview-lightbox-fullscreen" aria-label="Toggle Fullscreen">FULLSCREEN</button>
+        <button class="preview-lightbox-btn preview-lightbox-close" id="preview-lightbox-close" aria-label="Close preview">CLOSE</button>
+      </div>
+      <div class="preview-lightbox-title" id="preview-lightbox-title">PREVIEW</div>
+      <div class="preview-lightbox-content" id="preview-lightbox-content"></div>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
