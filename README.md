@@ -28,13 +28,21 @@ Memory & Storage Optimization Techniques
 
 🎯 Objectives
 To simulate real-world file system behavior
+
 To understand recovery mechanisms
+
 To analyze fragmentation impact
+
 To optimize disk performance logically
+
 📈 Future Enhancements
+
 GUI-based advanced visualization
+
 Real disk data integration
+
 AI-based recovery prediction
+
 Performance benchmarking
 
 ⭐ Show Your Support
