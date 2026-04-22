@@ -7,6 +7,7 @@ The File System Recovery & Optimization Tool is an Operating System-based projec
 It demonstrates core OS concepts like file allocation, fragmentation, recovery techniques, and disk optimization through an interactive and practical approach.
 
 **🚀 Features**
+
 🔍 File Recovery Simulation:
 Recovers deleted or lost files using logical reconstruction techniques.
 
